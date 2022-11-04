@@ -42,58 +42,61 @@ typedef struct Player {
 
 } Player;
 
+enum Platform_Type {
+	normal,
+	wall_jump,
+	ice,
+	sand,
+};
+
+enum Asset_Type {
+	decor,
+	interactable,
+	entry,
+};
+
+typedef struct Platforms_Data {
+	float x;
+	float y;
+	float width;
+	float height;
+	Platform_Type type;
+};
+
+typedef struct Assets_Data {
+	float x;
+	float y;
+	float width;
+	float height;
+	Asset_Type type;
+};
+
 class Current_Level {
-	enum Platform_Type {
-		normal,
-		wall_jump,
-		ice,
-		sand,
-	};
-
-	enum Asset_Type {
-		decor,
-		interactable,
-		entry,
-	};
-
 	private:
-		typedef struct Platforms_Data {
-			int x;
-			int y;
-			int width;
-			int height;
-			Platform_Type type;
-		};
-
-		typedef struct Assets_Data {
-			int x;
-			int y;
-			int width;
-			int height;
-			Asset_Type type;
-		};
 
 	public:
-		std::vector<Rectangle> platforms = {
-			{100, 700, 1900, 50},
-			{400, 400, 50,50},
-			{900, 600, 50, 100},
-			{650, 500, 50, 50},
-			{650, 300, 50, 50},
-			{400, 200, 50, 50},
-			{650, 100, 50, 50},
-			{900, 0, 50, 50},
-			{650, -100, 50, 50},
-			{0, -200, 400, 50},
-			{-2000, 800, 1900, 50},
-			{-1000, -300, 1000, 50},
-			{2000, 800, 50, 50},
-			{1500, 900, 1400, 100},
+
+
+		std::vector<Platforms_Data> platforms = {
+			{100, 700, 1900, 50, ice},
+			{400, 400, 50,50, normal},
+			{900, 600, 50, 100, normal},
+			{650, 500, 50, 50, normal},
+			{650, 300, 50, 50, normal},
+			{400, 200, 50, 50, normal},
+			{650, 100, 50, 50, normal},
+			{900, 0, 50, 50, normal},
+			{650, -100, 50, 50, normal},
+			{0, -200, 400, 50, normal},
+			{-2000, 800, 1900, 50, normal},
+			{-1000, -300, 1000, 50, sand},
+			{2000, 800, 50, 50, normal},
+			{1500, 900, 1400, 100, normal},
 		};
 
-		std::vector<std::vector<int>> assets = {
-			{100,600,50,50,1},
-			{300,550,50,50,1},
+		std::vector<Assets_Data> assets = {
+			{100,600,50,50,decor},
+			{300,550,50,50,decor},
 		};
 
 		Color platform_color{ 255,255,255,255 };
@@ -123,6 +126,26 @@ void do_physics(Player* player) {
 		}
 
 		if (!IsKeyDown(KEY_A) && !IsKeyDown(KEY_D)) {
+			if (player->x_vel > 0) {
+				if (player->x_vel - (player->decc * deltaTime) < 0) {
+					player->x_vel = 0;
+				}
+				else {
+					player->x_vel -= player->decc * deltaTime;
+				}
+			}
+			if (player->x_vel < 0) {
+				if (player->x_vel + (player->decc * deltaTime) > 0) {
+					player->x_vel = 0;
+				}
+				else {
+					player->x_vel += player->decc * deltaTime;
+				}
+			}
+		}
+
+		// if I'm going over the allowed speed when transitioning to different blocks
+		if (abs(player->x_vel) > player->speed) {
 			if (player->x_vel > 0) {
 				if (player->x_vel - (player->decc * deltaTime) < 0) {
 					player->x_vel = 0;
@@ -175,27 +198,7 @@ void do_physics(Player* player) {
 	player->pos_size.y += player->y_vel * deltaTime;
 }
 
-// I am creating my own collision detection function so that I can add flags to platforms that I place indicating whether the should give the player slower acceleration, decceleration, etc.
-bool GetCollision(Rectangle pos_size, std::vector<std::vector<int>> platforms) {
-	for (int i = 0; i < platforms.size(); i++) {
-		if ((pos_size.x >= platforms[i][0] && pos_size.x <= platforms[i][0] + platforms[i][2]) &&
-			((pos_size.y >= platforms[i][1] && pos_size.y <= platforms[i][1] + platforms[i][3]) || 
-			(pos_size.y + pos_size.height >= platforms[i][1] && pos_size.y + pos_size.height <= platforms[i][1] + platforms[i][3])) ||
-			(pos_size.x + pos_size.width >= platforms[i][0] && pos_size.x + pos_size.width <= platforms[i][0] + platforms[i][2]) && 
-			((pos_size.y + pos_size.height >= platforms[i][1] && pos_size.y + pos_size.height <= platforms[i][1] + platforms[i][3]) || 
-			(pos_size.y >= platforms[i][1] && pos_size.y <= platforms[i][1] + platforms[i][3])))
-		{
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-}
-
-void collision_detection(Player* player, std::vector<Rectangle> platforms) {
+void collision_detection(Player* player, std::vector<Platforms_Data> platforms) {
 
 	//std::printf("%.2f %.2f\n", player->pos_size.x, player->pos_size.y);
 	//std::printf("%.2f\n", player->y_vel);
@@ -203,12 +206,30 @@ void collision_detection(Player* player, std::vector<Rectangle> platforms) {
 	float deltaTime = GetFrameTime();
 
 	for (int i = 0; i < platforms.size(); i++) {
-		if (CheckCollisionRecs(player->pos_size, platforms[i])) {
+		if (CheckCollisionRecs(player->pos_size, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
 			//If my old position is above the platform
 			if (player->old_pos.y + player->old_pos.height < platforms[i].y) {
 				player->y_vel = 0;
 				player->isGrounded = true;
 				player->pos_size.y = platforms[i].y - player->pos_size.height - deltaTime;
+
+				//Platform type results
+				if (platforms[i].type == ice) {
+					player->decc = 450;
+					player->speed = 800;
+				}
+				else if (platforms[i].type == sand) {
+					player->acc = 500;
+					player->decc = 5000;
+					player->speed = 300;
+				}
+				else { // enum normal
+					player->speed = 600;
+					player->acc = 1970;
+					player->air_acc = 800;
+					player->air_decc = 700;
+					player->decc = 1900;
+				}
 				break;
 			}
 			//If my old position is below the platform
@@ -223,7 +244,7 @@ void collision_detection(Player* player, std::vector<Rectangle> platforms) {
 		}
 	}
 	for (int i = 0; i < platforms.size(); i++) {
-		if (CheckCollisionRecs(player->pos_size, platforms[i])) {
+		if (CheckCollisionRecs(player->pos_size, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
 			//If my old position is to the left of the platform
 			if (player->old_pos.x + player->old_pos.width < platforms[i].x) {
 				player->x_vel = 0;
@@ -258,11 +279,12 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 
 
 		//debug
+		std::cout << (player->acc) << std::endl;
 		for (int i = 0; i < level.platforms.size(); i++) {
 			DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, level.platform_color);
 		}
 		for (int i = 0; i < level.assets.size(); i++) {
-			DrawRectangle(level.assets[i][0], level.assets[i][1], level.assets[i][2], level.assets[i][3], level.asset_color);
+			DrawRectangle(level.assets[i].x, level.assets[i].y, level.assets[i].width, level.assets[i].height, level.asset_color);
 		}
 		DrawRectangleLines(player->pos_size.x, player->pos_size.y, player->pos_size.width, player->pos_size.height, { 255, 0, 0, 255 });
 		//DrawPixel(player->pos_size.x, player->pos_size.y, Color{ 0,255,0,255 });
@@ -296,6 +318,7 @@ int main(void)
 	while (!WindowShouldClose()) {
 
 		do_physics(&player);
+
 
 		collision_detection(&player, level.platforms);
 
