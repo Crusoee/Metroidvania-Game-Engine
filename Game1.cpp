@@ -78,7 +78,7 @@ class Current_Level {
 	public:
 		std::vector<Platforms_Data> platforms = {
 			{100, 700, 1900, 50, ice},
-			{1800, 600, 50, 50, jumpy},
+			{1000, 600, 50, 50, jumpy},
 			{400, 400, 50,50, normal},
 			{900, 600, 50, 100, normal},
 			{650, 500, 50, 50, normal},
@@ -97,11 +97,12 @@ class Current_Level {
 		std::vector<Assets_Data> assets = {
 			{100,600,50,50,decor},
 			{300,550,50,50,decor},
+			{1000, 0, 50, 600, decor},
 		};
 
 		//debug colors
 		Color platform_color{ 255,255,255,255 };
-		Color asset_color{ 200,50,120,255 };
+		Color asset_color{ 30,30,30,255 };
 };
 
 void do_physics(Player* player) {
@@ -113,6 +114,8 @@ void do_physics(Player* player) {
 	if (player->pos_size.y > DEATH_ZONE) {
 		player->pos_size.x = STARTING_X;
 		player->pos_size.y = STARTING_Y;
+		player->y_vel = 0;
+		player->x_vel = 0;
 	}
 
 	if (player->isGrounded) {
@@ -210,12 +213,14 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 		if (CheckCollisionRecs(player->pos_size, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
 			//If my old position is above the platform
 			if (player->old_pos.y + player->old_pos.height < platforms[i].y) {
+				float y_recoil = player->y_vel * 0.85;
 				player->y_vel = 0;
 				player->isGrounded = true;
 				player->pos_size.y = platforms[i].y - player->pos_size.height - deltaTime;
 
 				//Platform type results
 				if (platforms[i].type == ice) {
+					player->acc = 1970;
 					player->decc = 450;
 					player->speed = 800;
 					player->jump = -1000;
@@ -224,13 +229,14 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 					player->acc = 1100;
 					player->decc = 5000;
 					player->speed = 300;
-					player->jump = -1000;
+					player->jump = -600;
 				}
 				else if (platforms[i].type == jumpy) {
-					player->jump = -3000;
-					player->speed = 600;
-					player->acc = 1970;
-					player->decc = 1900;
+					player->y_vel = -y_recoil;
+					//player->jump = -3000;
+					//player->speed = 600;
+					//player->acc = 1970;
+					//player->decc = 1900;
 				}
 				else { // enum -> normal
 					player->speed = 600;
@@ -279,8 +285,8 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 
 void camera_movement(Player * player) {
 	float deltaTime = GetFrameTime();
-	player->camera_vel.x = (4.3 * (player->pos_size.x - player->camera_coord.x));
-	player->camera_vel.y = (4.3 * (player->pos_size.y - player->camera_coord.y));
+	player->camera_vel.x = (6.7 * (player->pos_size.x - player->camera_coord.x));
+	player->camera_vel.y = (6.7 * (player->pos_size.y - player->camera_coord.y));
 	player->camera_coord.x += player->camera_vel.x * deltaTime;
 	player->camera_coord.y += player->camera_vel.y * deltaTime;
 }
