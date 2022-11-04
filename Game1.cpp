@@ -75,8 +75,6 @@ class Current_Level {
 	private:
 
 	public:
-
-
 		std::vector<Platforms_Data> platforms = {
 			{100, 700, 1900, 50, ice},
 			{400, 400, 50,50, normal},
@@ -219,7 +217,7 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 					player->speed = 800;
 				}
 				else if (platforms[i].type == sand) {
-					player->acc = 500;
+					player->acc = 1100;
 					player->decc = 5000;
 					player->speed = 300;
 				}
@@ -281,7 +279,15 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 		//debug
 		std::cout << (player->acc) << std::endl;
 		for (int i = 0; i < level.platforms.size(); i++) {
-			DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, level.platform_color);
+			if (level.platforms[i].type == ice) {
+				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color { 100,180,255,255});
+			}
+			else if (level.platforms[i].type == sand) {
+				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color{ 245,245,220,255 });
+			}
+			else {
+				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, level.platform_color);
+			}
 		}
 		for (int i = 0; i < level.assets.size(); i++) {
 			DrawRectangle(level.assets[i].x, level.assets[i].y, level.assets[i].width, level.assets[i].height, level.asset_color);
