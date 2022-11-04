@@ -47,6 +47,7 @@ enum Platform_Type {
 	wall_jump,
 	ice,
 	sand,
+	jumpy,
 };
 
 enum Asset_Type {
@@ -77,6 +78,7 @@ class Current_Level {
 	public:
 		std::vector<Platforms_Data> platforms = {
 			{100, 700, 1900, 50, ice},
+			{1800, 600, 50, 50, jumpy},
 			{400, 400, 50,50, normal},
 			{900, 600, 50, 100, normal},
 			{650, 500, 50, 50, normal},
@@ -97,6 +99,7 @@ class Current_Level {
 			{300,550,50,50,decor},
 		};
 
+		//debug colors
 		Color platform_color{ 255,255,255,255 };
 		Color asset_color{ 200,50,120,255 };
 };
@@ -215,18 +218,33 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 				if (platforms[i].type == ice) {
 					player->decc = 450;
 					player->speed = 800;
+					player->jump = -1000;
 				}
 				else if (platforms[i].type == sand) {
 					player->acc = 1100;
 					player->decc = 5000;
 					player->speed = 300;
+					player->jump = -1000;
 				}
-				else { // enum normal
+				else if (platforms[i].type == jumpy) {
+					player->jump = -3000;
 					player->speed = 600;
 					player->acc = 1970;
-					player->air_acc = 800;
-					player->air_decc = 700;
 					player->decc = 1900;
+				}
+				else { // enum -> normal
+					player->speed = 600;
+
+					player->acc = 1970;
+					player->air_acc = 800;
+
+					player->decc = 1900;
+					player->air_decc = 700;
+
+					player->grav = 3500;
+					player->term_vel = 800;
+
+					player->jump = -1000;
 				}
 				break;
 			}
@@ -284,6 +302,9 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 			}
 			else if (level.platforms[i].type == sand) {
 				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color{ 245,245,220,255 });
+			}
+			else if (level.platforms[i].type == jumpy) {
+				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color{ 245,100,220,255 });
 			}
 			else {
 				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, level.platform_color);
