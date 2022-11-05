@@ -11,7 +11,7 @@ int HEIGHT = 1440;
 
 int DEATH_ZONE = 5000;
 
-float STARTING_X = 1000;
+float STARTING_X = 1200;
 float STARTING_Y = -1000;
 
 typedef struct Player {
@@ -78,7 +78,7 @@ class Current_Level {
 	public:
 		std::vector<Platforms_Data> platforms = {
 			{100, 700, 1900, 50, ice},
-			{1000, 600, 50, 50, jumpy},
+			{1200, 600, 50, 50, jumpy},
 			{400, 400, 50,50, normal},
 			{900, 600, 50, 100, normal},
 			{650, 500, 50, 50, normal},
@@ -97,7 +97,7 @@ class Current_Level {
 		std::vector<Assets_Data> assets = {
 			{100,600,50,50,decor},
 			{300,550,50,50,decor},
-			{1000, 0, 50, 600, decor},
+			{1200, 0, 50, 600, decor},
 		};
 
 		//debug colors
@@ -301,7 +301,6 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 
 
 		//debug
-		std::cout << (player->acc) << std::endl;
 		for (int i = 0; i < level.platforms.size(); i++) {
 			if (level.platforms[i].type == ice) {
 				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color { 100,180,255,255});
@@ -335,7 +334,7 @@ int main(void)
 {	
 	InitWindow(WIDTH, HEIGHT, "Game");
 
-	ToggleFullscreen();
+	//ToggleFullscreen();
 
 	Player player;
 	Current_Level level;
