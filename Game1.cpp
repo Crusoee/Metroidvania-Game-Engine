@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <map>
 #include <iostream>
@@ -26,17 +25,19 @@ typedef struct Player {
 
 	float speed = 600;
 	float acc = 1970;
-	float air_acc = 800;
+	float air_acc = 1200;
 	float air_decc = 700;
 	float decc = 1900;
 
 	float grav = 3500;
-	float term_vel = 800;
+	float term_vel = 10000;
 
 	float jump = -1000;
 
 	bool isJumping = false;
 	bool isGrounded = false;
+	bool onWallR = false;
+	bool onWallL = false;
 
 } Player;
 
@@ -86,10 +87,11 @@ class Current_Level {
 			{900, 0, 50, 50, normal},
 			{650, -100, 50, 50, normal},
 			{0, -200, 400, 50, normal},
-			{-2000, 800, 1900, 50, normal},
+			{-2000, 800, 1900, 50, sand},
 			{-1000, -300, 1000, 50, sand},
 			{2000, 800, 50, 50, normal},
-			{1500, 900, 1400, 100, normal},
+			{1500, 900, 1400, 100, ice},
+			{2900, 0, 50, 900, wall_jump},
 		};
 
 		std::vector<Assets_Data> assets = {
@@ -116,9 +118,17 @@ void do_physics(Player* player) {
 		player->x_vel = 0;
 	}
 
-	if (player->isGrounded) {
-		if (IsKeyPressed(KEY_SPACE) && player->isGrounded) {
+	if (player->isGrounded || player->onWallR || player->onWallL) {
+		if (IsKeyPressed(KEY_SPACE)) {
 			player->y_vel = player->jump;
+			if (!player->isGrounded) {
+				if (player->onWallR) {
+					player->x_vel = 200;
+				}
+				else if (player->onWallL) {
+					player->x_vel = -200;
+				}
+			}
 		}
 		if (IsKeyDown(KEY_A) && player->x_vel > -player->speed) {
 			player->x_vel -= player->acc * deltaTime;
@@ -165,6 +175,25 @@ void do_physics(Player* player) {
 				}
 			}
 		}
+
+		if (abs(player->y_vel) > player->term_vel) {
+			if (player->y_vel > 0) {
+				if (player->y_vel - (player->decc * deltaTime) < 0) {
+					player->y_vel = 0;
+				}
+				else {
+					player->x_vel -= player->decc * deltaTime;
+				}
+			}
+			if (player->y_vel < 0) {
+				if (player->y_vel + (player->decc * deltaTime) > 0) {
+					player->y_vel = 0;
+				}
+				else {
+					player->y_vel += player->decc * deltaTime;
+				}
+			}
+		}
 	}
 	else {
 		if (IsKeyDown(KEY_A) && player->x_vel > -player->speed) {
@@ -195,7 +224,9 @@ void do_physics(Player* player) {
 	}
 	player->pos_size.x += player->x_vel * deltaTime;
 
-	player->y_vel += player->grav * deltaTime;
+	if (player->y_vel < player->term_vel) {
+		player->y_vel += player->grav * deltaTime;
+	}
 
 	player->pos_size.y += player->y_vel * deltaTime;
 }
@@ -205,7 +236,7 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 	//std::printf("%.2f %.2f\n", player->pos_size.x, player->pos_size.y);
 	//std::printf("%.2f\n", player->y_vel);
 
-	float deltaTime = GetFrameTime();
+	float deltaTime = 0.01;
 
 	for (int i = 0; i < platforms.size(); i++) {
 		if (CheckCollisionRecs(player->pos_size, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
@@ -236,17 +267,17 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 					//player->acc = 1970;
 					//player->decc = 1900;
 				}
-				else { // enum -> normal
+				else if (platforms[i].type == normal) { // enum -> normal
 					player->speed = 600;
 
 					player->acc = 1970;
-					player->air_acc = 800;
+					player->air_acc = 1200;
 
 					player->decc = 1900;
 					player->air_decc = 700;
 
 					player->grav = 3500;
-					player->term_vel = 800;
+					player->term_vel = 10000;
 
 					player->jump = -1000;
 				}
@@ -269,14 +300,30 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 			if (player->old_pos.x + player->old_pos.width < platforms[i].x) {
 				player->x_vel = 0;
 				player->pos_size.x = platforms[i].x - player->pos_size.width - deltaTime;
+				if (platforms[i].type == wall_jump) {
+					player->onWallL = true;
+					player->onWallR = false;
+					player->term_vel = 200;
+				}
 				break;
 			}
 			//If my old position is to the right of the platform
 			if (player->old_pos.x > platforms[i].x + platforms[i].width) {
 				player->x_vel = 0;
 				player->pos_size.x = platforms[i].x + platforms[i].width + deltaTime;
+				if (platforms[i].type == wall_jump) {
+					player->onWallR = true;
+					player->onWallL = true;
+					player->term_vel = 200;
+				}
 				break;
 			}
+		}
+		else {
+			player->grav = 3500;
+			player->term_vel = 10000;
+			player->onWallR = false;
+			player->onWallL = false;
 		}
 	}
 }
@@ -299,6 +346,7 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 
 
 		//debug
+
 		for (int i = 0; i < level.platforms.size(); i++) {
 			if (level.platforms[i].type == ice) {
 				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color { 100,180,255,255});
@@ -348,7 +396,6 @@ int main(void)
 	while (!WindowShouldClose()) {
 
 		do_physics(&player);
-
 
 		collision_detection(&player, level.platforms);
 
