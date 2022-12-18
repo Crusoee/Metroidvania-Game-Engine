@@ -104,12 +104,6 @@ bool CollisionCheck(Player * player, Rectangle platform) {
 	}
 }
 
-void detect_platform_type(Player player, Platform_Type platform_type) {
-	if (platform_type == norm) {
-
-	}
-}
-
 void do_physics(Player* player) {
 
 	float deltaTime = GetFrameTime();
@@ -222,12 +216,10 @@ void do_physics(Player* player) {
 	if (player->onWall == true) {
 		if (IsKeyPressed(KEY_SPACE)) {
 			if (IsKeyDown(KEY_A)) {
-				std::cout << "left" << std::endl;
 				player->y_vel = player->jump;
 				player->x_vel = 130;
 			}
 			if (IsKeyDown(KEY_D)) {
-				std::cout << "right" << std::endl;
 				player->y_vel = player->jump;
 				player->x_vel = -130;
 			}
@@ -318,6 +310,9 @@ void platform_responsesX(Player* player, Platforms_Data platform, float x_recoil
 		player->grav = 3500;
 		player->term_vel = 100;
 		player->onWall = true;
+	}
+	else if (platform.type == ice) {
+		player->y_vel *= 1 + GetFrameTime();
 	}
 }
 
@@ -429,7 +424,7 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 }
 
 void load(Current_Level * level) {
-	std::fstream file("Levels\\level.txt");
+	std::fstream file("Levels\\level1.lvl");
 
 	std::string platform_data;
 
@@ -442,7 +437,7 @@ void load(Current_Level * level) {
 	file.close();
 }
 
-int main(void) 
+int main(void)
 {	
 	InitWindow(WIDTH, HEIGHT, "Game");
 
@@ -453,14 +448,12 @@ int main(void)
 	load(&level);
 
 	Camera2D camera;
-	camera.zoom = 3;
+	camera.zoom = 2;
 	camera.offset = { (float) (WIDTH / 2) - (player.posAndSize.width + 25), (float) (HEIGHT / 2) - (player.posAndSize.height + 50)};
 	camera.rotation = 0;
 
 	//if fps is > 1000 or < 12, you fall through the platform
 	SetTargetFPS(165);
-
-	std::cout << level.platforms.size() << std::endl;
 
 	while (!WindowShouldClose()) {
 
@@ -476,5 +469,3 @@ int main(void)
 
 	CloseWindow();
 }
-
-
