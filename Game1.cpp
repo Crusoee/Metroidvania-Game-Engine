@@ -19,6 +19,12 @@ enum Platform_Type {
 	sand,
 	jumpy,
 	walljump,
+	hyperjumpy,
+	water,
+	windToRight,
+	windToLeft,
+	windToTop,
+	windToBottom,
 };
 
 typedef struct Player {
@@ -29,6 +35,10 @@ typedef struct Player {
 	Vector2 camera_coord = { STARTING_X,STARTING_Y };
 	Vector2 camera_vel = { 0,0 };
 	float camera_acc = 5000;
+
+	float zoom = 2;
+	float zoomMultiplier = 0;
+	float cameraGrip = 6.7;
 
 	float x_vel = 0;
 	float y_vel = 0;
@@ -42,14 +52,13 @@ typedef struct Player {
 	float grav = 3500;
 	float term_vel = 10000;
 
-	float jump = -1000;
+	float jump = -800;
 
 	bool isJumping = false;
 	bool onWall = false;
 	bool isGrounded = false;
-
-	Platform_Type rememberY;
-	Platform_Type rememberX;
+	bool inPhaseSpace = false;
+	bool inWater = false;
 
 } Player;
 
@@ -60,13 +69,27 @@ enum Asset_Type {
 	entry,
 };
 
+
 typedef struct Platforms_Data {
 	float x;
 	float y;
 	float width;
 	float height;
 	Platform_Type type;
+	bool phaseSpace;
 };
+
+typedef struct Platforms_Connecting {
+
+	Platforms_Data platformY = {0,0,0,0, norm};
+	Platforms_Data platformX = {0,0,0,0, norm};
+
+	bool shouldStopTop = false;
+	bool shouldStopBottom = false;
+	bool shouldStopLeft = false;
+	bool shouldStopRight = false;
+
+} Platforms_Connecting;
 
 typedef struct Assets_Data {
 	float x;
@@ -90,19 +113,6 @@ class Current_Level {
 		Color platform_color{ 255,255,255,255 };
 		Color asset_color{ 30,30,30,255 };
 };
-
-bool CollisionCheck(Player * player, Rectangle platform) {
-	if (((platform.x < player->posAndSize.x && player->posAndSize.x < platform.x + platform.width) || 
-		(platform.x < player->posAndSize.x + player->posAndSize.width && player->posAndSize.x + player->posAndSize.width < platform.x + platform.width)) &&
-		((platform.y < player->posAndSize.y && player->posAndSize.y < platform.y + platform.height) ||
-		(platform.y < player->posAndSize.y + player->posAndSize.height && player->posAndSize.y + player->posAndSize.height < platform.y + platform.height)))
-	{
-		return true;
-	}
-	else {
-		return false;
-	}
-}
 
 void do_physics(Player* player) {
 
@@ -225,94 +235,162 @@ void do_physics(Player* player) {
 			}
 		}
 	}
+	if (player->inWater == true) {
+		if (IsKeyDown(KEY_SPACE)) {
+			player->y_vel += -5000 * deltaTime;
+		}
+	}
 
 	player->posAndSize.x += player->x_vel * deltaTime;
 
-	if (player->y_vel < player->term_vel) {
+	if (abs(player->y_vel) < player->term_vel) {
 		player->y_vel += player->grav * deltaTime;
+	}
+	else {
+		if (player->y_vel > 0) {
+			player->y_vel -= player->air_decc * deltaTime;
+		}
+		if (player->y_vel < 0) {
+			player->y_vel += player->air_decc * deltaTime;
+		}
 	}
 
 	player->posAndSize.y += player->y_vel * deltaTime;
 }
 
-void platform_responsesY(Player * player, Platforms_Data platform, float y_recoil) {
-	if (player->rememberY == platform.type && 
-		platform.type != jumpy) {
-		return;
+void platform_responsesY(Player * player, Platforms_Data platform, float newPos) {
+	
+	float y_recoil;
+
+	if (!platform.phaseSpace) {
+		y_recoil = -player->y_vel;
+		player->y_vel = 0;
+		player->isGrounded = true;
+		player->posAndSize.y = newPos;
 	}
-	else {
-		if (platform.type == norm || platform.type == walljump) {
-			player->speed = 600;
-			player->acc = 1970;
-			player->decc = 1900;
-			player->air_acc = 1200;
-			player->air_decc = 700;
 
-			player->grav = 3500;
-			player->term_vel = 10000;
+	if (platform.type == norm || platform.type == walljump) {
+		player->speed = 600;
+		player->acc = 1970;
+		player->decc = 1900;
+		player->air_acc = 1200;
+		player->air_decc = 700;
 
-			player->jump = -1000;
+		player->grav = 3500;
+		player->term_vel = 10000;
 
-			player->rememberY = platform.type;
-		}
-		else if (platform.type == ice) {
-			player->speed = 870;
-			player->acc = 1970;
-			player->decc = 590;
-			player->air_acc = 1200;
-			player->air_decc = 700;
+		player->jump = -800;
 
-			player->grav = 3500;
-			player->term_vel = 10000;
+	}
+	else if (platform.type == ice) {
+		player->speed = 870;
+		player->acc = 1970;
+		player->decc = 590;
+		player->air_acc = 1200;
+		player->air_decc = 700;
 
-			player->jump = -1000;
+		player->grav = 3500;
+		player->term_vel = 10000;
 
-			player->rememberY = platform.type;
-		}
-		else if (platform.type == sand) {
-			player->speed = 270;
-			player->acc = 600;
-			player->decc = 2000;
-			player->air_acc = 1200;
-			player->air_decc = 700;
+		player->jump = -800;
 
-			player->grav = 3500;
-			player->term_vel = 10000;
+	}
+	else if (platform.type == sand) {
+		player->speed = 200;
+		player->acc = 600;
+		player->decc = 2000;
+		player->air_acc = 1200;
+		player->air_decc = 700;
 
-			player->jump = -600;
+		player->grav = 3500;
+		player->term_vel = 10000;
 
-			player->rememberY = platform.type;
-		}
-		else if (platform.type == jumpy) {
-			player->y_vel = y_recoil;
+		player->jump = -600;
 
-			player->speed = 600;
-			player->acc = 1970;
-			player->decc = 1900;
-			player->air_acc = 1200;
-			player->air_decc = 700;
+	}
+	else if (platform.type == jumpy) {
+		player->y_vel = y_recoil * 0.85;
 
-			player->grav = 3500;
-			player->term_vel = 10000;
+		player->speed = 600;
+		player->acc = 1970;
+		player->decc = 1900;
+		player->air_acc = 1200;
+		player->air_decc = 700;
 
-			player->jump = -1000;
+		player->grav = 3500;
+		player->term_vel = 10000;
 
-			player->rememberY = platform.type;
-		}
+		player->jump = -800;
+
+	}
+	else if (platform.type == hyperjumpy) {
+		player->y_vel = y_recoil;
+
+		player->speed = 600;
+		player->acc = 1970;
+		player->decc = 1900;
+		player->air_acc = 1200;
+		player->air_decc = 700;
+
+		player->grav = 3500;
+		player->term_vel = 10000;
+
+		player->jump = -800;
 	}
 }
 
-void platform_responsesX(Player* player, Platforms_Data platform, float x_recoil) {
+void platform_responsesX(Player* player, Platforms_Data platform, float newPos) {
+
+	float x_recoil;
+	if (platform.type != water) {
+		x_recoil = -player->x_vel * 0.85;
+		player->x_vel = 0;
+		player->posAndSize.x = newPos;
+	}
+
 	if (platform.type == jumpy) {
 		player->x_vel = x_recoil;
 	}
 	else if (platform.type == walljump) {
 		player->grav = 3500;
 		player->term_vel = 100;
+		player->air_decc = 4000;
+		player->jump = -800;
 		player->onWall = true;
 	}
 	else if (platform.type == ice) {
 		player->y_vel *= 1 + GetFrameTime();
+	}
+}
+
+void phase_space_responses(Player* player, Platforms_Data platform) {
+
+	player->inPhaseSpace = true;
+
+	if (platform.type == water && player->posAndSize.y + (player->posAndSize.height / 2) > platform.y) {
+		player->inWater = true;
+		player->speed = 100;
+		player->acc = 200;
+		player->decc = 2300;
+		player->air_acc = 1200;
+		player->air_decc = 2300;
+
+		player->grav = 300;
+		player->term_vel = 100;
+
+		player->jump = -20;
+	}
+	if (platform.type == windToRight) {
+		player->x_vel += 5000 * GetFrameTime();
+	}
+	if (platform.type == windToLeft) {
+		player->x_vel -= 5000 * GetFrameTime();
+	}
+	if (platform.type == windToTop) {
+		player->y_vel -= 5000 * GetFrameTime();
+	}
+	if (platform.type == windToBottom) {
+		player->y_vel += 5000 * GetFrameTime();
 	}
 }
 
@@ -321,24 +399,23 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 	//std::printf("%.2f %.2f\n", player->posAndSize.x, player->posAndSize.y);
 	//std::printf("%.2f\n", player->y_vel);
 
+	int cntr = 0;
 	for (int i = 0; i < platforms.size(); i++) {
+		cntr += 1;
 		if (CheckCollisionRecs(player->posAndSize, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
 			//If my old position is above the platform
 			if (player->old_pos.y + player->old_pos.height <= platforms[i].y) {
-				float y_recoil = -player->y_vel * 0.85;
-				player->y_vel = 0;
-				player->isGrounded = true;
-				player->posAndSize.y = platforms[i].y - player->posAndSize.height;
-				platform_responsesY(player, platforms[i], y_recoil);
-				break;
+				if (!platforms[i].phaseSpace) {
+					platform_responsesY(player, platforms[i], platforms[i].y - player->posAndSize.height);
+					break;
+				}
 			}
 			//If my old position is below the platform
 			if (player->old_pos.y >= platforms[i].y + platforms[i].height) {
-				float y_recoil = -player->y_vel * 0.85;
-				player->y_vel = 0;
-				player->posAndSize.y = platforms[i].y + platforms[i].height;
-				platform_responsesY(player, platforms[i], y_recoil);
-				break;
+				if (!platforms[i].phaseSpace) {
+					platform_responsesY(player, platforms[i], platforms[i].y + platforms[i].height);
+					break;
+				}
 			}
 		}
 		else {
@@ -349,35 +426,69 @@ void collision_detection(Player* player, std::vector<Platforms_Data> platforms) 
 		if (CheckCollisionRecs(player->posAndSize, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
 			//If my old position is to the left of the platform
 			if (player->old_pos.x + player->old_pos.width <= platforms[i].x) {
-				float x_recoil = -player->x_vel * 0.85;
-				player->x_vel = 0;
-				player->posAndSize.x = platforms[i].x - player->posAndSize.width;
-				platform_responsesX(player, platforms[i], x_recoil);
-				break;
+				if (!platforms[i].phaseSpace) {
+					platform_responsesX(player, platforms[i], platforms[i].x - player->posAndSize.width);
+					break;
+				}
 			}
 			//If my old position is to the right of the platform
 			if (player->old_pos.x >= platforms[i].x + platforms[i].width) {
-				float x_recoil = -player->x_vel * 0.85;		
-				player->x_vel = 0;
-				player->posAndSize.x = platforms[i].x + platforms[i].width;
-				platform_responsesX(player, platforms[i], x_recoil);
-				break;
+				if (!platforms[i].phaseSpace) {
+					platform_responsesX(player, platforms[i], platforms[i].x + platforms[i].width);
+					break;
+				}
 			}
 		}
 		else {
-			player->grav = 3500;
-			player->term_vel = 10000;
 			player->onWall = false;
 		}
 	}
+	for (int i = 0; i < platforms.size(); i++) {
+		if (CheckCollisionRecs(player->posAndSize, Rectangle{ platforms[i].x, platforms[i].y, platforms[i].width, platforms[i].height })) {
+			phase_space_responses(player, platforms[i]);
+			break;
+		}
+		else {
+			player->inPhaseSpace = false;
+			player->inWater = false;
+		}
+	}
+
+	if (player->inWater == false && player->onWall == false && player->isGrounded == false) {
+		player->grav = 3500;
+		player->term_vel = 10000;
+
+		player->speed = 600;
+		player->acc = 1970;
+		player->decc = 1900;
+		player->air_acc = 1200;
+		player->air_decc = 700;
+	}
 }
 
-void camera_movement(Player * player) {
+void camera_movement(Player * player, Camera2D * camera) {
 	float deltaTime = GetFrameTime();
-	player->camera_vel.x = (6.7 * (player->posAndSize.x - player->camera_coord.x));
-	player->camera_vel.y = (6.7 * (player->posAndSize.y - player->camera_coord.y));
+
+	float vel;
+	if (abs(player->x_vel) > abs(player->y_vel)) {
+		vel = abs(player->x_vel);
+	}
+	else {
+		vel = abs(player->y_vel);
+	}
+
+	float distance = player->zoomMultiplier - vel;
+	player->zoomMultiplier += 3.7 * -distance * deltaTime;
+
+	camera->zoom = ((6 * abs(player->zoomMultiplier)) / (abs(player->zoomMultiplier) + 20000)) + 2;
+	player->cameraGrip = ((30 * abs(player->zoomMultiplier)) / (abs(player->zoomMultiplier) + 2000)) + 6.7;
+
+	player->camera_vel.x = (player->cameraGrip * (player->posAndSize.x - player->camera_coord.x));
+	player->camera_vel.y = (player->cameraGrip * (player->posAndSize.y - player->camera_coord.y));
 	player->camera_coord.x += player->camera_vel.x * deltaTime;
 	player->camera_coord.y += player->camera_vel.y * deltaTime;
+
+
 }
 
 void draw_screen(Current_Level level, Player* player, Camera2D camera) {
@@ -389,7 +500,14 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 
 
 
-		//debug
+	//debug
+
+		//if (player->inWater == false) {
+		//	std::cout << "not in water" << std::endl;
+		//}
+		//else {
+		//	std::cout << "is in water" << std::endl;
+		//}
 
 		for (int i = 0; i < level.platforms.size(); i++) {
 			if (level.platforms[i].type == norm) {
@@ -406,6 +524,12 @@ void draw_screen(Current_Level level, Player* player, Camera2D camera) {
 			}
 			else if (level.platforms[i].type == walljump) {
 				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color{ 170,170,170,255 });
+			}
+			else if (level.platforms[i].type == hyperjumpy) {
+				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color{ 180,255,180,255 });
+			}
+			else if (level.platforms[i].type == water) {
+				DrawRectangle(level.platforms[i].x, level.platforms[i].y, level.platforms[i].width, level.platforms[i].height, Color{ 0,0,255,130 });
 			}
 		}
 		for (int i = 0; i < level.assets.size(); i++) {
@@ -429,9 +553,10 @@ void load(Current_Level * level) {
 	std::string platform_data;
 
 	float x, y, width, height, type;
+	bool phaseSpace;
 
-	while (file >> x >> y >> width >> height >> type) {
-		level->platforms.insert(level->platforms.begin(), Platforms_Data{ x, y, width, height, (Platform_Type)type });
+	while (file >> x >> y >> width >> height >> type >> phaseSpace) {
+		level->platforms.insert(level->platforms.begin(), Platforms_Data{ x, y, width, height, (Platform_Type)type, phaseSpace });
 	}
 
 	file.close();
@@ -445,10 +570,13 @@ int main(void)
 
 	Player player;
 	Current_Level level;
+
+	Platforms_Connecting platforms_connecting;
+
 	load(&level);
 
 	Camera2D camera;
-	camera.zoom = 2;
+	camera.zoom = player.zoom;
 	camera.offset = { (float) (WIDTH / 2) - (player.posAndSize.width + 25), (float) (HEIGHT / 2) - (player.posAndSize.height + 50)};
 	camera.rotation = 0;
 
@@ -461,7 +589,7 @@ int main(void)
 
 		collision_detection(&player, level.platforms);
 
-		camera_movement(&player);
+		camera_movement(&player, &camera);
 		camera.target = { player.camera_coord.x, player.camera_coord.y };
 
 		draw_screen(level, &player, camera);
